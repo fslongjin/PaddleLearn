@@ -163,6 +163,8 @@ def predict():
 
     print("Inference result is {}, the corresponding label is {}".format(predict.numpy(), label))
 
+
+
 if __name__ == '__main__':
     mode = 'predict'
     if mode == 'train':
