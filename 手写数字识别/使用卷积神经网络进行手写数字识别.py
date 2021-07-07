@@ -4,6 +4,7 @@ import paddle.nn.functional as F
 import json, gzip
 import numpy as np
 import random
+from PIL import Image
 
 
 # 同步数据读取
@@ -11,7 +12,7 @@ def load_data_sync(mode='train'):
     """
     同步读取数据
     """
-    data_file = './mnist.json.gz'
+    data_file = './work/mnist.json.gz'
     print("从 {} 读取MNIST数据集...".format(data_file))
     # 加载json数据文件
     data = json.load(gzip.open(data_file))
@@ -143,10 +144,46 @@ def train(model):
             opt.step()
             opt.clear_grad()
 
-    paddle.save(model.state_dict(), './mnist-cnn.pdparams')
+    paddle.save(model.state_dict(), './work/mnist-cnn.pdparams')
+
+
+def load_image(img_path):
+    im = Image.open(img_path).convert('L')
+    im = im.resize((28, 28), Image.ANTIALIAS)
+    im = np.array(im).reshape(1, 1, 28, 28).astype(np.float32)
+
+    # 图像归一化
+    im = 1.0 - im/255.
+
+    return im
+
+def predict():
+    model = MNIST()
+    params_file_path = './work/mnist-cnn.pdparams'
+    img_path = './work/example_0.png'
+    param_dict = paddle.load(params_file_path)
+    model.load_dict(param_dict)
+
+    # 预测模式
+    model.eval()
+    tensor_img = load_image(img_path)
+    results = model(paddle.to_tensor(tensor_img))
+
+    # 取概率最大的标签作为预测输出
+    lab = np.argsort(results.numpy())
+
+    print("本次预测的数字是：", lab[0][-1])
 
 
 if __name__ == '__main__':
-    model = MNIST()
-    train(model)
+
+    mode = 'predict'
+    if mode == 'train':
+        model = MNIST()
+        train(model)
+    elif mode == 'predict':
+        predict()
+
+
+
 
