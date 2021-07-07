@@ -20,9 +20,6 @@ class MNIST(paddle.nn.Layer):
         return opt
 
 
-
-
-
 def train(model):
 
     model.train()
@@ -99,7 +96,7 @@ def t_test(img_path='example_0.png'):
 
 
 if __name__ == '__main__':
-    mode = 'test'
+    mode = 'train'
     if mode == 'train':
         model = MNIST()
         train(model)

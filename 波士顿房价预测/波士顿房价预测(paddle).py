@@ -166,7 +166,7 @@ def predict():
 
 
 if __name__ == '__main__':
-    mode = 'predict'
+    mode = 'train'
     if mode == 'train':
         train()
     elif mode == 'predict':
