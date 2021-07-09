@@ -112,8 +112,17 @@ def train(model):
     # 调用加载数据的函数
     train_loader = load_data_sync('train')
 
+    # 随机梯度下降，每次训练少量数据，抽样偏差导致的参数收敛过程中震荡
+    #opt = paddle.optimizer.SGD(learning_rate=0.001, parameters=model.parameters())
+    # Momentum： 引入物理“动量”的概念，累积速度，减少震荡，使参数更新的方向更稳定
+    #opt = paddle.optimizer.Momentum(learning_rate=0.001, momentum=0.9, parameters=model.parameters())
 
-    opt = paddle.optimizer.SGD(learning_rate=0.001, parameters=model.parameters())
+    # AdaGrad： 根据不同参数距离最优解的远近，动态调整学习率。学习率逐渐下降，依据各参数变化大小调整学习率。
+    #opt = paddle.optimizer.Adagrad(learning_rate=0.001, parameters=model.parameters())
+
+    # Adam： 由于动量和自适应学习率两个优化思路是正交的，因此可以将两个思路结合起来，这就是当前广泛应用的算法。
+    opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+
 
     EPOCH_NUM = 10
 
