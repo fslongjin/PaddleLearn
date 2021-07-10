@@ -6,13 +6,14 @@ import numpy as np
 import random
 from PIL import Image
 
+img_height, img_width = 28, 28
 
 # 同步数据读取
 def load_data_sync(mode='train'):
     """
     同步读取数据
     """
-    data_file = './work/mnist.json.gz'
+    data_file = 'work/mnist.json.gz'
     print("从 {} 读取MNIST数据集...".format(data_file))
     # 加载json数据文件
     data = json.load(gzip.open(data_file))
@@ -53,8 +54,8 @@ def load_data_sync(mode='train'):
 
         for i in index_list:
             # 将数据处理成希望的类型
-            img = np.array(imgs[i]).astype('float32')
-            label = np.array(labels[i]).astype('int64')
+            img = np.reshape(imgs[i], [1, img_height, img_width]).astype('float32')
+            label = np.reshape(labels[i], [1]).astype('int64')
             imgs_list.append(img)
             labels_list.append(label)
 
@@ -91,7 +92,7 @@ class MNIST(paddle.nn.Layer):
 
     # 定义网络前向计算过程，卷积后紧接着使用池化层，最后使用全连接层计算最终输出
     # 卷积层激活函数使用relu， 全连接层不使用激活函数
-    def forward(self, inputs):
+    def forward(self, inputs, label=None):
         x = self.conv1(inputs)
         x = F.relu(x)
         x = self.max_pool_1(x)
@@ -101,7 +102,12 @@ class MNIST(paddle.nn.Layer):
         x = paddle.reshape(x, [x.shape[0], -1])
         x = self.fc(x)
         x = F.softmax(x)
-        return x
+        if label is not None:
+            # 计算分类准确率
+            acc = paddle.metric.accuracy(input=x, label=label)
+            return x, acc
+        else:
+            return x
 
 
 # 启动训练过程
@@ -134,11 +140,11 @@ def train(model):
             # 准备数据
             images, labels = data
             images = paddle.to_tensor(images)
-            images = paddle.reshape(images, [images.shape[0], 1, img_height, img_width])
+            # images = paddle.reshape(images, [images.shape[0], 1, img_height, img_width])
             labels = paddle.to_tensor(labels)
 
             #前向计算
-            predicts = model(images)
+            predicts, acc = model(images, labels)
 
             # 计算损失，取一个批次样本损失的平均值
             loss = F.cross_entropy(predicts, labels)
@@ -146,14 +152,14 @@ def train(model):
 
             # 每训练200批次的数据，打印当前loss情况
             if batch_id % 200 == 0:
-                print("epoch:{}, batch:{}, loss:{}".format(epoch_id, batch_id, avg_loss.numpy()))
+                print("epoch:{}, batch:{}, loss:{}, accuracy:{}".format(epoch_id, batch_id, avg_loss.numpy(), acc.numpy()))
 
             # 反向传播
             avg_loss.backward()
             opt.step()
             opt.clear_grad()
 
-    paddle.save(model.state_dict(), './work/mnist-cnn.pdparams')
+    paddle.save(model.state_dict(), 'work/mnist-cnn.pdparams')
 
 
 def load_image(img_path):
@@ -168,8 +174,8 @@ def load_image(img_path):
 
 def predict():
     model = MNIST()
-    params_file_path = './work/mnist-cnn.pdparams'
-    img_path = './work/example_0.png'
+    params_file_path = 'work/mnist-cnn.pdparams'
+    img_path = 'work/example_0.png'
     param_dict = paddle.load(params_file_path)
     model.load_dict(param_dict)
 
@@ -186,7 +192,7 @@ def predict():
 
 if __name__ == '__main__':
 
-    mode = 'predict'
+    mode = 'train'
     if mode == 'train':
         model = MNIST()
         train(model)
