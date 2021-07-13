@@ -12,6 +12,8 @@ log_writer = LogWriter("./work/log")
 
 import matplotlib.pyplot as plt
 
+
+
 img_height, img_width = 28, 28
 
 # 同步数据读取
@@ -98,6 +100,7 @@ class MNIST(paddle.nn.Layer):
 
     # 定义网络前向计算过程，卷积后紧接着使用池化层，最后使用全连接层计算最终输出
     # 卷积层激活函数使用relu， 全连接层不使用激活函数
+    # @paddle.jit.to_static # 添加装饰器，使动态图网络结构在静态图模式下运行
     def forward(self, inputs, label=None, check_shape=False, check_content=False):
         # 给不同层的输出不同命名，方便调试
         outputs1 = self.conv1(inputs)
@@ -229,11 +232,7 @@ def train(model, ckpt=False):
                 acc_val_mean = evaluation(model, False)
                 log_writer.add_scalar(tag='eval_acc', step=iter, value=acc_val_mean)
 
-
-
-
                 iter += 100
-
             # 反向传播
             avg_loss.backward()
             opt.step()
@@ -243,7 +242,17 @@ def train(model, ckpt=False):
         paddle.save(opt.state_dict(), './work/checkpoints/mnist_epoch{}'.format(epoch_id) + '.pdopt')
 
     paddle.save(model.state_dict(), 'work/mnist-cnn.pdparams')
-
+    """
+    
+    # 保存静态图网络模型
+    from paddle.static import InputSpec
+    paddle.jit.save(
+        layer=model,
+        path='./work/static_graph/mnist',
+        input_spec=[InputSpec(shape=[None, 784], dtype='float32')]
+    )
+    print("静态图成功保存！")
+    """
     # 画图
     plt.figure()
     plt.title("train loss", fontsize=24)
@@ -327,7 +336,7 @@ def evaluation(model, is_empty_model=True):
 
 if __name__ == '__main__':
 
-    mode = 'continue_train'
+    mode = 'train'
 
     import os
     if not os.path.exists("./work/checkpoints"):
