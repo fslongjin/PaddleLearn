@@ -6,6 +6,9 @@ import numpy as np
 import random
 from PIL import Image
 
+from visualdl import LogWriter
+log_writer = LogWriter("./work/log")
+
 import matplotlib.pyplot as plt
 
 img_height, img_width = 28, 28
@@ -208,6 +211,11 @@ def train(model):
                 print("epoch:{}, batch:{}, loss:{}, accuracy:{}".format(epoch_id, batch_id, avg_loss.numpy(), acc.numpy()))
                 iters.append(iter)
                 losses.append(avg_loss.numpy())
+
+                # 使用visual DL进行绘图
+                log_writer.add_scalar(tag='acc', step=iter, value=acc.numpy())
+                log_writer.add_scalar(tag='loss', step=iter, value=avg_loss.numpy())
+
                 iter += 100
 
             # 反向传播
