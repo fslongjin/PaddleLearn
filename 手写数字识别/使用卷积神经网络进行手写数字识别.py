@@ -6,6 +6,8 @@ import numpy as np
 import random
 from PIL import Image
 
+import matplotlib.pyplot as plt
+
 img_height, img_width = 28, 28
 
 # 同步数据读取
@@ -175,6 +177,10 @@ def train(model):
     # MNIST图像的高和宽
     img_height, img_width = 28, 28
 
+    iters = []
+    losses = []
+    iter = 0
+
     for epoch_id in range(EPOCH_NUM):
         for batch_id, data in enumerate(train_loader()):
             # 准备数据
@@ -183,6 +189,7 @@ def train(model):
             # images = paddle.reshape(images, [images.shape[0], 1, img_height, img_width])
             labels = paddle.to_tensor(labels)
 
+            """
             # 前向计算，同时得到模型输出值和分类准确率
             if batch_id == 0 and epoch_id == 0:
                 predicts, acc = model(images, labels, check_shape=True, check_content=False)
@@ -190,14 +197,18 @@ def train(model):
                 predicts, acc = model(images, labels, check_shape=False, check_content=True)
             else:
                 predicts, acc = model(images, labels)
-
+            """
+            predicts, acc = model(images, labels)
             # 计算损失，取一个批次样本损失的平均值
             loss = F.cross_entropy(predicts, labels)
             avg_loss = paddle.mean(loss)
 
-            # 每训练200批次的数据，打印当前loss情况
-            if batch_id % 200 == 0:
+            # 每训练100批次的数据，打印当前loss情况
+            if batch_id % 100 == 0:
                 print("epoch:{}, batch:{}, loss:{}, accuracy:{}".format(epoch_id, batch_id, avg_loss.numpy(), acc.numpy()))
+                iters.append(iter)
+                losses.append(avg_loss.numpy())
+                iter += 100
 
             # 反向传播
             avg_loss.backward()
@@ -205,6 +216,17 @@ def train(model):
             opt.clear_grad()
 
     paddle.save(model.state_dict(), 'work/mnist-cnn.pdparams')
+
+    # 画图
+    plt.figure()
+    plt.title("train loss", fontsize=24)
+    plt.xlabel("iter", fontsize=14)
+    plt.ylabel("loss", fontsize=14)
+    plt.plot(iters, losses, color="red", label="train loss")
+    plt.grid()
+
+    plt.savefig("work/train_loss.png")
+    plt.show()
 
 
 def load_image(img_path):
@@ -271,7 +293,7 @@ def evaluation(model):
 
 if __name__ == '__main__':
 
-    mode = 'eval'
+    mode = 'train'
     if mode == 'train':
         model = MNIST()
         train(model)
