@@ -7,6 +7,7 @@ import random
 from PIL import Image
 
 from visualdl import LogWriter
+# 设置日志保存路径
 log_writer = LogWriter("./work/log")
 
 import matplotlib.pyplot as plt
@@ -215,6 +216,9 @@ def train(model):
                 # 使用visual DL进行绘图
                 log_writer.add_scalar(tag='acc', step=iter, value=acc.numpy())
                 log_writer.add_scalar(tag='loss', step=iter, value=avg_loss.numpy())
+                # 输出在测试集中的准确率
+                acc_val_mean = evaluation(model, False)
+                log_writer.add_scalar(tag='eval_acc', step=iter, value=acc_val_mean)
 
                 iter += 100
 
@@ -265,13 +269,15 @@ def predict():
     print("本次预测的数字是：", lab[0][-1])
 
 
-def evaluation(model):
+def evaluation(model, is_empty_model=True):
     print("start evaluation...")
-    # 定义预测过程
-    params_file_path = "work/mnist-cnn.pdparams"
-    # 加载模型参数
-    param_dict = paddle.load(params_file_path)
-    model.load_dict(param_dict)
+
+    if is_empty_model:
+        # 定义预测过程
+        params_file_path = "work/mnist-cnn.pdparams"
+        # 加载模型参数
+        param_dict = paddle.load(params_file_path)
+        model.load_dict(param_dict)
 
     model.eval()
     eval_loader = load_data_sync('eval')
@@ -294,7 +300,9 @@ def evaluation(model):
     acc_val_mean = np.array(acc_set).mean()
     avg_loss_mean = np.array(avg_loss_set).mean()
 
+
     print("loss={}, acc={}".format(avg_loss_mean, acc_val_mean))
+    return acc_val_mean
 
 
 
