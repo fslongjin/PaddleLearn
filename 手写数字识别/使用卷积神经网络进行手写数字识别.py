@@ -166,7 +166,8 @@ def train(model):
     #opt = paddle.optimizer.Adagrad(learning_rate=0.001, parameters=model.parameters())
 
     # Adam： 由于动量和自适应学习率两个优化思路是正交的，因此可以将两个思路结合起来，这就是当前广泛应用的算法。
-    opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+    # weight_decay引入正则化项，coeff调整正则化项的权重。
+    opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters(), weight_decay=paddle.regularizer.L2Decay(coeff=1e-5))
 
 
     EPOCH_NUM = 10
