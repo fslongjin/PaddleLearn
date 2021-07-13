@@ -92,22 +92,61 @@ class MNIST(paddle.nn.Layer):
 
     # 定义网络前向计算过程，卷积后紧接着使用池化层，最后使用全连接层计算最终输出
     # 卷积层激活函数使用relu， 全连接层不使用激活函数
-    def forward(self, inputs, label=None):
-        x = self.conv1(inputs)
-        x = F.relu(x)
-        x = self.max_pool_1(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = self.max_pool_2(x)
-        x = paddle.reshape(x, [x.shape[0], -1])
-        x = self.fc(x)
-        x = F.softmax(x)
+    def forward(self, inputs, label=None, check_shape=False, check_content=False):
+        # 给不同层的输出不同命名，方便调试
+        outputs1 = self.conv1(inputs)
+        outputs2 = F.relu(outputs1)
+        outputs3 = self.max_pool_1(outputs2)
+        outputs4 = self.conv2(outputs3)
+        outputs5 = F.relu(outputs4)
+        outputs6 = self.max_pool_2(outputs5)
+        outputs6 = paddle.reshape(outputs6, [outputs6.shape[0], -1])
+        outputs7 = self.fc(outputs6)
+        outputs8 = F.softmax(outputs7)
+
+        # 选择是否打印神经网络每层的参数尺寸和输出尺寸，验证网络结构是否正确
+        if check_shape:
+            # 打印每层网络设置的超参数-卷积核尺寸，卷积步长，卷积padding，池化核尺寸
+            print("\n########## print network layer's superparams ##############")
+            print("conv1-- kernel_size: {}, padding: {}, stride: {}".format(self.conv1.weight.shape,
+                                                                            self.conv1._padding, self.conv1._stride))
+            print("conv2-- kernel_size: {}, padding: {}, stride: {}".format(self.conv2.weight.shape,
+                                                                            self.conv2._padding, self.conv2._stride))
+            print("fc-- weight_size:{}, bias_size_{}".format(self.fc.weight.shape, self.fc.bias.shape))
+
+            # 打印每层的输出尺寸
+            print("\n########## print shape of features of every layer ###############")
+            print("inputs_shape: {}".format(inputs.shape))
+            print("outputs1_shape: {}".format(outputs1.shape))
+            print("outputs2_shape: {}".format(outputs2.shape))
+            print("outputs3_shape: {}".format(outputs3.shape))
+            print("outputs4_shape: {}".format(outputs4.shape))
+            print("outputs5_shape: {}".format(outputs5.shape))
+            print("outputs6_shape: {}".format(outputs6.shape))
+            print("outputs7_shape: {}".format(outputs7.shape))
+            print("outputs8_shape: {}".format(outputs8.shape))
+
+        # 选择是否打印训练过程中的参数和输出内容，可用于训练过程中的调试
+        if check_content:
+            # 打印卷积层的参数-卷积核权重，权重参数较多，此处只打印部分参数
+            print("\n########## print convolution layer's kernel ###############")
+            print("conv1 params -- kernel weights:", self.conv1.weight[0][0])
+            print("conv2 params -- kernel weights:", self.conv2.weight[0][0])
+
+            # 创建随机数，随机打印某一个通道的输出值
+            idx1 = np.random.randint(0, outputs1.shape[1])
+            idx2 = np.random.randint(0, outputs4.shape[1])
+            # 打印卷积-池化后的结果，仅打印batch中第一个图像对应的特征
+            print("\nThe {}th channel of conv1 layer: ".format(idx1), outputs1[0][idx1])
+            print("The {}th channel of conv2 layer: ".format(idx2), outputs4[0][idx2])
+            print("The output of last layer:", outputs8[0], '\n')
+
         if label is not None:
             # 计算分类准确率
-            acc = paddle.metric.accuracy(input=x, label=label)
-            return x, acc
+            acc = paddle.metric.accuracy(input=outputs8, label=label)
+            return outputs8, acc
         else:
-            return x
+            return outputs8
 
 
 # 启动训练过程
@@ -143,8 +182,13 @@ def train(model):
             # images = paddle.reshape(images, [images.shape[0], 1, img_height, img_width])
             labels = paddle.to_tensor(labels)
 
-            #前向计算
-            predicts, acc = model(images, labels)
+            # 前向计算，同时得到模型输出值和分类准确率
+            if batch_id == 0 and epoch_id == 0:
+                predicts, acc = model(images, labels, check_shape=True, check_content=False)
+            elif batch_id == 401:
+                predicts, acc = model(images, labels, check_shape=False, check_content=True)
+            else:
+                predicts, acc = model(images, labels)
 
             # 计算损失，取一个批次样本损失的平均值
             loss = F.cross_entropy(predicts, labels)
