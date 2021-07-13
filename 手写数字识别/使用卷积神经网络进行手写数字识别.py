@@ -156,12 +156,18 @@ class MNIST(paddle.nn.Layer):
 
 
 # 启动训练过程
-def train(model):
+def train(model, ckpt=False):
     model.train()
 
     print("正在读取数据...")
     # 调用加载数据的函数
     train_loader = load_data_sync('train')
+
+    if ckpt:
+        # 断点恢复
+        params_dict = paddle.load('./work/checkpoints/' + checkpoint_name + ".pdparams")
+        opt_dict = paddle.load('./work/checkpoints/' + checkpoint_name + ".pdopt")
+        model.set_state_dict(params_dict)
 
     # 随机梯度下降，每次训练少量数据，抽样偏差导致的参数收敛过程中震荡
     #opt = paddle.optimizer.SGD(learning_rate=0.001, parameters=model.parameters())
@@ -173,7 +179,10 @@ def train(model):
 
     # Adam： 由于动量和自适应学习率两个优化思路是正交的，因此可以将两个思路结合起来，这就是当前广泛应用的算法。
     # weight_decay引入正则化项，coeff调整正则化项的权重。
-    opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters(), weight_decay=paddle.regularizer.L2Decay(coeff=1e-5))
+    opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters(), weight_decay=paddle.regularizer.L2Decay(coeff=0.001))
+
+    if ckpt:
+        opt.set_state_dict(opt_dict)
 
 
     EPOCH_NUM = 10
@@ -185,7 +194,7 @@ def train(model):
     losses = []
     iter = 0
 
-    for epoch_id in range(EPOCH_NUM):
+    for epoch_id in range(start_epoch, EPOCH_NUM):
         for batch_id, data in enumerate(train_loader()):
             # 准备数据
             images, labels = data
@@ -220,12 +229,18 @@ def train(model):
                 acc_val_mean = evaluation(model, False)
                 log_writer.add_scalar(tag='eval_acc', step=iter, value=acc_val_mean)
 
+
+
+
                 iter += 100
 
             # 反向传播
             avg_loss.backward()
             opt.step()
             opt.clear_grad()
+        # 保存模型参数和优化器的参数
+        paddle.save(model.state_dict(), './work/checkpoints/mnist_epoch{}'.format(epoch_id) + '.pdparams')
+        paddle.save(opt.state_dict(), './work/checkpoints/mnist_epoch{}'.format(epoch_id) + '.pdopt')
 
     paddle.save(model.state_dict(), 'work/mnist-cnn.pdparams')
 
@@ -269,6 +284,9 @@ def predict():
     print("本次预测的数字是：", lab[0][-1])
 
 
+eval_loader = load_data_sync('eval')
+
+
 def evaluation(model, is_empty_model=True):
     print("start evaluation...")
 
@@ -280,7 +298,7 @@ def evaluation(model, is_empty_model=True):
         model.load_dict(param_dict)
 
     model.eval()
-    eval_loader = load_data_sync('eval')
+
 
     acc_set = []
     avg_loss_set = []
@@ -309,7 +327,15 @@ def evaluation(model, is_empty_model=True):
 
 if __name__ == '__main__':
 
-    mode = 'train'
+    mode = 'continue_train'
+
+    import os
+    if not os.path.exists("./work/checkpoints"):
+        os.mkdir("./work/checkpoints")
+    global checkpoint_name
+    global start_epoch
+    start_epoch = 0
+
     if mode == 'train':
         model = MNIST()
         train(model)
@@ -318,6 +344,11 @@ if __name__ == '__main__':
     elif mode == 'eval':
         model = MNIST()
         evaluation(model)
+    elif mode == 'continue_train':
+        model = MNIST()
+        checkpoint_name = "mnist_epoch1"
+        start_epoch = 1
+        train(model, True)
 
 
 
