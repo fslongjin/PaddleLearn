@@ -49,21 +49,21 @@ def data_loader(datadir, batchsize=10, mode='train'):
                 label = 1
             else:
                 raise ('Not support file name')
-
+            label = np.reshape(label, [1])
             # 每读取一个样本的数据，就将其放入数据列表中
             batch_imgs.append(img)
             batch_labels.append(label)
 
             if len(batch_imgs) == batchsize:
                 imgs_array = np.array(batch_imgs).astype('float32')
-                labels_array = np.array(batch_labels).astype('int64').reshape(-1, 1)
+                labels_array = np.array(batch_labels).astype('int64')
                 yield imgs_array, labels_array
                 batch_imgs = []
                 batch_labels = []
 
         if len(batch_imgs) > 0:
             imgs_array = np.array(batch_imgs).astype('float32')
-            labels_array = np.array(batch_labels).astype('int64').reshape(-1, 1)
+            labels_array = np.array(batch_labels).astype('int64')
             yield imgs_array, labels_array
     return reader
 
@@ -90,6 +90,7 @@ def valid_data_loader(datadir, csvfile, batch_size=10, mode='valid'):
             name = line[1]
             # print(line)
             label = int(line[2])
+            label = np.reshape(label, [1])
             # 根据图片文件名加载图片，并对图像数据作预处理
             file_path = os.path.join(datadir, name)
             img = cv2.imread(file_path)
@@ -100,12 +101,12 @@ def valid_data_loader(datadir, csvfile, batch_size=10, mode='valid'):
 
             if len(batch_imgs) == batch_size:
                 imgs_array = np.array(batch_imgs).astype('float32')
-                labels_array = np.array(batch_labels).astype('int64').reshape(-1, 1)
+                labels_array = np.array(batch_labels).astype('int64')
                 yield imgs_array, labels_array
 
         if len(batch_imgs) > 0:
             imgs_array = np.array(batch_imgs).astype('float32')
-            labels_array = np.array(batch_labels).astype('int64').reshape(-1, 1)
+            labels_array = np.array(batch_labels).astype('int64')
             yield imgs_array, labels_array
     return reader
 
