@@ -64,6 +64,7 @@ def load_data_sync(mode='train'):
             # 将数据处理成希望的类型
             img = np.reshape(imgs[i], [1, img_height, img_width]).astype('float32')
             label = np.reshape(labels[i], [1]).astype('int64')
+            # print(label)
             imgs_list.append(img)
             labels_list.append(label)
 
@@ -158,6 +159,96 @@ class MNIST(paddle.nn.Layer):
             return outputs8
 
 
+class VGG(paddle.nn.Layer):
+    def __init__(self, num_classes=1):
+        super(VGG, self).__init__()
+
+        in_channels = [1, 64, 128, 256, 512, 512]
+        # 定义第一个卷积块，包含两个卷积
+        self.conv1_1 = Conv2D(in_channels=in_channels[0], out_channels=in_channels[1], kernel_size=3, padding=1, stride=1)
+        self.conv1_2 = Conv2D(in_channels=in_channels[1], out_channels=in_channels[1], kernel_size=3, padding=1, stride=1)
+        # 定义第二个卷积块，包含两个卷积
+        self.conv2_1 = Conv2D(in_channels=in_channels[1], out_channels=in_channels[2], kernel_size=3, padding=1, stride=1)
+        self.conv2_2 = Conv2D(in_channels=in_channels[2], out_channels=in_channels[2], kernel_size=3, padding=1, stride=1)
+        # 定义第三个卷积块，包含三个卷积
+        self.conv3_1 = Conv2D(in_channels=in_channels[2], out_channels=in_channels[3], kernel_size=3, padding=1, stride=1)
+        self.conv3_2 = Conv2D(in_channels=in_channels[3], out_channels=in_channels[3], kernel_size=3, padding=1, stride=1)
+        self.conv3_3 = Conv2D(in_channels=in_channels[3], out_channels=in_channels[3], kernel_size=3, padding=1, stride=1)
+        # 定义第四个卷积块，包含三个卷积
+        self.conv4_1 = Conv2D(in_channels=in_channels[3], out_channels=in_channels[4], kernel_size=3, padding=1, stride=1)
+        self.conv4_2 = Conv2D(in_channels=in_channels[4], out_channels=in_channels[4], kernel_size=3, padding=1, stride=1)
+        self.conv4_3 = Conv2D(in_channels=in_channels[4], out_channels=in_channels[4], kernel_size=3, padding=1, stride=1)
+        # 定义第五个卷积块，包含三个卷积
+        self.conv5_1 = Conv2D(in_channels=in_channels[4], out_channels=in_channels[5], kernel_size=3, padding=1, stride=1)
+        self.conv5_2 = Conv2D(in_channels=in_channels[5], out_channels=in_channels[5], kernel_size=3, padding=1, stride=1)
+        self.conv5_3 = Conv2D(in_channels=in_channels[5], out_channels=in_channels[5], kernel_size=3, padding=1, stride=1)
+
+        # 使用Sequential 将全连接层和relu组成线性结构(fc+relu)
+        # 当输入为28*28时，经过5个卷积块和池化层后，形状变为512*7*7
+        self.fc1 = paddle.nn.Sequential(
+            paddle.nn.Linear(512, 4096),
+            paddle.nn.ReLU()
+        )
+        self.drop1_ratio = 0.5
+        self.dropout1 = paddle.nn.Dropout(self.drop1_ratio, mode='upscale_in_train')
+        # 使用Sequential将全连接层和relu组成一个线性结构（fc+relu）
+        self.fc2 = paddle.nn.Sequential(
+            paddle.nn.Linear(4096, 4096),
+            paddle.nn.ReLU()
+        )
+        self.drop2_ratio = 0.5
+        self.dropout2 = paddle.nn.Dropout(self.drop2_ratio, mode='upscale_in_train')
+        self.fc3 = paddle.nn.Linear(4096, num_classes)
+
+        self.relu = paddle.nn.ReLU()
+        self.pool = MaxPool2D(stride=2, kernel_size=2)
+
+        self.softmax = Softmax()
+
+
+
+    def forward(self, x, label=None):
+        x = self.relu(self.conv1_1(x))
+        x = self.relu(self.conv1_2(x))
+        x = self.pool(x)
+
+        x = self.relu(self.conv2_1(x))
+        x = self.relu(self.conv2_2(x))
+        x = self.pool(x)
+
+        x = self.relu(self.conv3_1(x))
+        x = self.relu(self.conv3_2(x))
+        x = self.relu(self.conv3_3(x))
+        x = self.pool(x)
+
+        x = self.relu(self.conv4_1(x))
+        x = self.relu(self.conv4_2(x))
+        x = self.relu(self.conv4_3(x))
+        x = self.pool(x)
+
+        x = self.relu(self.conv5_1(x))
+        x = self.relu(self.conv5_2(x))
+        x = self.relu(self.conv5_3(x))
+        x = self.pool(x)
+
+        x = paddle.flatten(x, 1, -1)
+        x = self.dropout1(self.relu(self.fc1(x)))
+        x = self.dropout2(self.relu(self.fc2(x)))
+        x = self.fc3(x)
+
+        # x = self.softmax(x)
+
+        if label is not None:
+            # print(x)
+            # print(label)
+            acc = paddle.metric.accuracy(input=x, label=label)
+            return x, acc
+        else:
+            return x
+
+
+
+
 # 启动训练过程
 def train(model, ckpt=False):
     model.train()
@@ -230,6 +321,7 @@ def train(model, ckpt=False):
                 log_writer.add_scalar(tag='loss', step=iter, value=avg_loss.numpy())
                 # 输出在测试集中的准确率
                 acc_val_mean = evaluation(model, False)
+                model.train()
                 log_writer.add_scalar(tag='eval_acc', step=iter, value=acc_val_mean)
 
                 iter += 100
@@ -346,7 +438,8 @@ if __name__ == '__main__':
     start_epoch = 0
 
     if mode == 'train':
-        model = MNIST()
+        #model = MNIST()
+        model = VGG(num_classes=10)
         train(model)
     elif mode == 'predict':
         predict()

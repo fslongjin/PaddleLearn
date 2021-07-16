@@ -160,7 +160,7 @@ class AlexNet(paddle.nn.Layer):
         x = self.drop2(x)
         x = self.fc3(x)
 
-        x = F.softmax(x)
+        # x = F.softmax(x)
 
         if label is not None:
             acc = paddle.metric.accuracy(input=x, label=label)
@@ -237,5 +237,5 @@ def train_pm(model, optimizer):
 model = AlexNet(num_classes=2)
 # 启动训练过程
 # opt = paddle.optimizer.Momentum(learning_rate=0.001, momentum=0.9, parameters=model.parameters())
-opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+opt = paddle.optimizer.Adam(learning_rate=0.00001, parameters=model.parameters())
 train_pm(model, optimizer=opt)

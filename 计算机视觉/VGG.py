@@ -3,7 +3,7 @@ import random
 import numpy as np
 import os
 import paddle
-from paddle.nn import Conv2D, MaxPool2D, Linear, Dropout, BatchNorm2D
+from paddle.nn import Conv2D, MaxPool2D, Linear, Dropout, BatchNorm2D, Softmax
 import paddle.nn.functional as F
 from visualdl import LogWriter
 # 设置日志保存路径
@@ -50,7 +50,7 @@ def data_loader(datadir, batchsize=10, mode='train'):
             else:
                 raise ('Not support file name')
 
-            label = np.reshape(label, [1]).astype('int64')
+            label = np.reshape(label, [1])
 
             # 每读取一个样本的数据，就将其放入数据列表中
             batch_imgs.append(img)
@@ -92,7 +92,7 @@ def valid_data_loader(datadir, csvfile, batch_size=10, mode='valid'):
             name = line[1]
             # print(line)
             label = int(line[2])
-            label = np.reshape(label, [1]).astype('int64')
+            label = np.reshape(label, [1])
             # 根据图片文件名加载图片，并对图像数据作预处理
             file_path = os.path.join(datadir, name)
             img = cv2.imread(file_path)
@@ -105,6 +105,10 @@ def valid_data_loader(datadir, csvfile, batch_size=10, mode='valid'):
                 imgs_array = np.array(batch_imgs).astype('float32')
                 labels_array = np.array(batch_labels).astype('int64')
                 yield imgs_array, labels_array
+                # 清空数据读取列表
+                batch_imgs = []
+                batch_labels = []
+
 
         if len(batch_imgs) > 0:
             imgs_array = np.array(batch_imgs).astype('float32')
@@ -156,6 +160,9 @@ class VGG(paddle.nn.Layer):
         self.relu = paddle.nn.ReLU()
         self.pool = MaxPool2D(stride=2, kernel_size=2)
 
+        self.softmax = Softmax()
+
+
 
     def forward(self, x, label=None):
         x = self.relu(self.conv1_1(x))
@@ -186,9 +193,11 @@ class VGG(paddle.nn.Layer):
         x = self.dropout2(self.relu(self.fc2(x)))
         x = self.fc3(x)
 
-        # x = F.softmax(x)
+        # x = self.softmax(x)
 
         if label is not None:
+            # print(x)
+            # print(label)
             acc = paddle.metric.accuracy(input=x, label=label)
             return x, acc
         else:
@@ -198,7 +207,7 @@ class VGG(paddle.nn.Layer):
 # 定义训练过程
 def train_pm(model, optimizer):
     # 开启0号GPU训练
-    use_gpu = True
+    use_gpu = False
     paddle.set_device('gpu:0') if use_gpu else paddle.set_device('cpu')
     print("start training...")
     model.train()
@@ -210,6 +219,7 @@ def train_pm(model, optimizer):
     iter = 0
     iters = []
     for epoch in range(epoch_num):
+        model.train()
         for batch_id, data in enumerate(train_loader()):
             x_data, y_data = data
             img = paddle.to_tensor(x_data)
@@ -233,7 +243,7 @@ def train_pm(model, optimizer):
             optimizer.step()
             optimizer.clear_grad()
 
-        model.eval()
+
         accuracies = []
         losses = []
         for batch_id, data in enumerate(valid_loader()):
@@ -242,10 +252,11 @@ def train_pm(model, optimizer):
             label = paddle.to_tensor(y_data)
             logits, acc = model(img, label)
 
+
             loss = F.cross_entropy(input=logits, label=label)
-            avg_loss = paddle.mean(loss)
+            avg_val_loss = paddle.mean(loss)
             accuracies.append(float(acc.numpy()))
-            losses.append(float(avg_loss.numpy()))
+            losses.append(float(avg_val_loss.numpy()))
 
         # 计算多个batch的平均损失和准确率
         acc_val_mean = np.array(accuracies).mean()
@@ -254,7 +265,7 @@ def train_pm(model, optimizer):
         log_writer.add_scalar(tag='eval_acc', step=iter, value=acc_val_mean)
 
         print("loss={}, acc={}".format(avg_loss_val_mean, acc_val_mean))
-        model.train()
+
 
     paddle.save(model.state_dict(), './work/VGG.pdparams')
 
@@ -263,5 +274,6 @@ def train_pm(model, optimizer):
 model = VGG(num_classes=2)
 # 启动训练过程
 # opt = paddle.optimizer.Momentum(learning_rate=0.001, momentum=0.9, parameters=model.parameters())
-opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+# opt = paddle.optimizer.Adam(learning_rate=0.001, parameters=model.parameters())
+opt = paddle.optimizer.SGD(learning_rate=0.001, parameters=model.parameters())
 train_pm(model, optimizer=opt)
