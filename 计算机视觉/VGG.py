@@ -207,7 +207,7 @@ class VGG(paddle.nn.Layer):
 # 定义训练过程
 def train_pm(model, optimizer):
     # 开启0号GPU训练
-    use_gpu = False
+    use_gpu = True
     paddle.set_device('gpu:0') if use_gpu else paddle.set_device('cpu')
     print("start training...")
     model.train()
