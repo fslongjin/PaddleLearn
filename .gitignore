@@ -9,3 +9,8 @@
 /计算机视觉/work/
 /自然语言处理/text8.txt
 /自然语言处理/skip_gram_ckpt3.0.pdparams
+/自然语言处理/res/
+/情感分析/aclImdb_v1.tar.gz
+/情感分析/aclImdb_v1/
+/情感分析/sentiment_classifier.pdopt
+/情感分析/sentiment_classifier.pdparams
